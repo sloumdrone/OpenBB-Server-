@@ -38,7 +38,7 @@ def api_route(command,target):
             'data': {'success': False}
         }
 
-    return message
+    return json.dumps(message)
 
     opts = {
         'list': {
@@ -58,25 +58,6 @@ def api_route(command,target):
             'targets': ['board','topic','post','user'],
         }
     }
-
-    command = command.lower()
-    target = target.lower()
-    try:
-        data = request.forms.get('data')
-    except:
-        data = None
-
-    if command in opts and target in opts[command]['targets'] and data:
-        return 'Success!'
-        # return json.dumps(opts[command]['caller'](target,json.decode(data)))
-
-    if not data:
-        error_msg = {'messages': ['Issues with incoming data stream from client'], 'data':{'success': False}}
-    elif command in opts:
-        error_msg = {'messages': ['Invalid query argument: {}'.format(command)], 'data':{'success': False}}
-    else:
-        error_msg = {'messages': ['Invalid query argument: {}'.format(target)], 'data':{'success': False}}
-    return json.dumps(error_msg)
 
 
 #-#-#-#-#-#
@@ -107,7 +88,7 @@ def sys_api(command):
         message = sys.delete_user(user, data['password'])
     else:
         message['errors'].append(1006)
-    return message
+    return json.dumps(message)
 
 
 #-#-#-#-#-#

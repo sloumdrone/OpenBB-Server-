@@ -9,7 +9,6 @@ def private(f):
         data = request.json[u'data']
         token = data['token']
         user = data['user']
-        print user
         db_path = './bb/sys.sqlite'
         current = int(time.time())
 

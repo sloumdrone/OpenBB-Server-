@@ -1,76 +1,91 @@
 import os.path, sqlite3, time, re
 import auth
+import helpers as h
 
 sys_db = './bb/sys.sqlite'
 
 def add(target,d):
+    message = h.msg()
     val = d[u'value']
     db_path = './bb/{}.sqlite'.format(d[u'board'])
     if target == 'board':
         if re.match(r'^[\w-]{4,20}$',val):
+            finished = 0
             filepath = './bb/{}.sqlite'.format(val)
-            if not os.path.isfile(filepath):
-                db_conn = sqlite3.connect(filepath)
-                c = db_conn.cursor()
-                now = time.time()
-                c.execute("CREATE TABLE bb (type text NOT NULL, headline text NOT NULL, body text NOT NULL,creator text NOT NULL, parent_id, creation_time integer NOT NULL)")
-                db_conn.commit()
-                db_conn.close()
-                db_conn = sqlite3.connect(sys_db)
-                c = db_conn.cursor()
-                c.execute("INSERT INTO boards (name,creator,time,description) VALUES (?,?,?,?)",(val,d[u'user'],now,d[u'body']))
-                db_conn.commit()
-                db_conn.close()
-                message = {'messages': ['Board created successfully!','New board name: {}'.format(val)], 'data': {'success': True}}
+            now = time.time()
+            query1 = "CREATE TABLE bb (type text NOT NULL, headline text NOT NULL, body text NOT NULL,creator text NOT NULL, parent_id, creation_time integer NOT NULL)"
+            if h.db_do(query1,'',filepath):
+                finished += 1
+            query2 = "INSERT INTO boards (name,creator,time,description) VALUES (?,?,?,?)"
+            qvals2 = (val,d[u'user'],now,d[u'body'])
+            if h.db_do(query2,qvals2,sys_db):
+                finished += 1
+            if finished > 1:
+                message['success'] = True
             else:
-                message = {'messages': ['A board with the name "{}" already exists!'.format(val)], 'data': {'success': False}}
+                message['errors'].append(1003)
         else:
-            message = {'messages': ['The board name "{}" is not allowed.'.format(val),'Boards must be letters, numbers, underscores, and hyphens only.','Boards names must be between 4 and 20 characters in length'],'data': {'success': False}}
+            message['errors'].append(1005)
     elif target == 'topic':
         if not re.match(r'^[-\w ]{1,50}$',d[u'headline']):
-            message = {'messages': ['The topic name is not in the correct format','Please use between 1 and 50 letters, numbers, spaces, hyphens, and udnerlines'],'data': {'success': False}}
+            message['errors'].append(1005)
         elif not os.path.isfile(db_path):
-            message = {'messages': ['The requested board does not exist','Run "list board" to verify the spelling','Then try again'],'data':{'success': False}}
+            message['errors'].append(1001)
         else:
-            db_conn = sqlite3.connect('./bb/{}.sqlite'.format(d[u'board']))
-            c = db_conn.cursor()
             now = time.time()
-            c.execute("INSERT INTO bb (type, headline, body, creator,creation_time) VALUES (?, ?, ?, ?, ?)",('topic',d[u'headline'],d[u'body'],d[u'user'],now))
-            db_conn.commit()
-            db_conn.close()
-            message = {'messages': ['Topic created successfully!','To verify, make sure your board is set','Then run "list topic"'],'data':{'success': True}}
+            query = "INSERT INTO bb (type, headline, body, creator,creation_time) VALUES (?, ?, ?, ?, ?)"
+            qvals = ('topic',d[u'headline'],d[u'body'],d[u'user'],now)
+            if h.db_do(query, qvals, db_path):
+                message['success'] = True
+            else:
+                message['errors'].append(1003)
     return message
 
 def list(target,d):
+    message = h.msg()
     val = d[u'value'] * 10
-    data_out = []
+    board_db = False
+    if d[u'board']:
+        if os.path.isfile('./bb/{}.sqlite'.format(d[u'board'])):
+            board_db = './bb/{}.sqlite'.format(d[u'board'])
+
     if target == 'board':
         db_conn = sqlite3.connect(sys_db)
         c = db_conn.cursor()
-        c.execute("SELECT * FROM boards ORDER BY name ASC LIMIT 10 OFFSET 0")
-        for x in c:
+        query = "SELECT * FROM boards ORDER BY name ASC LIMIT 10 OFFSET 0"
+        rows = h.db_do(query, '', sys_db, False)
+        for x in rows:
             row = {'headline': x[0],'body': x[3],'id': 0}
-            data_out.append(row)
-    elif d[u'board'] and target in ['topic','post']:
-        db_conn = sqlite3.connect(sys_db)
-        c = db_conn.cursor()
-        c.execute("SELECT * FROM boards WHERE name = ?",(d[u'board'],))
-        success = c.fetchone()
-        db_conn.close()
-        if success:
-            db_conn = sqlite3.connect('./bb/{}.sqlite'.format(d[u'board']))
-            c = db_conn.cursor()
-            if target == 'topic':
-                c.execute('SELECT rowid, headline, body FROM bb WHERE type = ? ORDER BY rowid ASC',('topic',))
-                for x in c:
-                    row = {'id': x[0], 'headline': x[1], 'body': x[2]}
-                    data_out.append(row)
+            message['rows'].append(row)
+        if len(rows):
+            message['success'] = True
+        else:
+            message['errors'].append(1007)
+    elif d[u'board'] and board_db:
+        if target == 'topic':
+            query = 'SELECT rowid, headline, body, creator, creation_time FROM bb WHERE type = ? ORDER BY rowid ASC'
+            qvals = ('topic',)
+        elif target == 'post':
+            if d[u'topic']:
+                query = 'SELECT rowid, headline, body, creator, creation_time FROM bb WHERE type = ? and parent_id = ? ORDER BY creation_time DESC'
+                qvals = ('post', d[u'topic'])
             else:
-                c.execute('SELECT * FROM bb WHERE type = ? and parent = ?')
+                query = False
+                qvals = False
+                message['errors'].append(1005)
 
-    db_conn.commit()
-    db_conn.close()
-    message = {'messages': ['{} list compiled successfully'.format(target)],'data': {'success': True, 'rows': data_out}}
+        if query and qvals:
+            rows = h.db_do(query, qvals, board_db, False)
+            for x in rows:
+                row = {'id': x[0], 'headline': x[1], 'body': x[2], 'creator': x[3], 'time': x[4]}
+                message['rows'].append(row)
+            if len(rows):
+                message['success'] = True
+            else:
+                message['errors'].append(1007)
+    else:
+        message['errors'].append(1001)
+
     return message
 
 
