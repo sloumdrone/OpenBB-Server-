@@ -55,7 +55,7 @@ def join(username, d):
     qvals = (username, pw, now, d[u'bio'], d[u'contact'], d[u'url'])
     if h.db_do(query, qvals, sys_db):
         message['success'] = True
-        message['username'] = username
+        message['user'] = username
     else:
         message['errors'].append(1002)
     return message

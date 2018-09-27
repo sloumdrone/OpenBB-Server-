@@ -30,7 +30,7 @@ def db_do(query,var,db,singleton=True):
 #-#-#-#-#-#
 def msg():
     data = {
-        'username': None,
+        'user': None,
         'success': False,
         'token': None,
         'body': None,

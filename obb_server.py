@@ -75,7 +75,7 @@ def sys_api(command):
         message['errors'].append(1005)
         return json.dumps(message)
 
-    user = data[u'username']
+    user = data[u'user']
     command = command.lower()
 
     if command == 'logon':

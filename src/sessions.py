@@ -1,6 +1,7 @@
 import sqlite3, time
 from bottle import request, get, post, response
 from functools import wraps
+from json import loads
 import api
 
 def private(f):
@@ -24,5 +25,6 @@ def private(f):
             db_conn.close()
             return f(*args, **kwargs)
         db_conn.close()
-        return {'messages': ['You are not logged in, or your session is expired','Please log in again'],'data': {'success': False}}
+        bad_auth = {'success': False, 'errors': [1002]}
+        return json.loads(bad_auth)
     return wrapper
