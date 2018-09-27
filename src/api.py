@@ -39,6 +39,24 @@ def add(target,d):
                 message['success'] = True
             else:
                 message['errors'].append(1003)
+    elif target == 'post':
+        if d[u'topic'] and d[u'board']:
+            query1 = "SELECT * FROM bb WHERE type = 'topic' and rowid = ?"
+            qvals1 = (d[u'topic'],)
+            if h.db_do(query1, qvals1, db_path) and d[u'body']:
+                headline = d[u'headline'] if d[u'body'] else ''
+                now = time.time()
+                query2 = "INSERT INTO bb (type, headline, body, creator, parent_id, creation_time) VALUES (?, ?, ?, ?, ?, ?)"
+                qvals2 = ('post',headline,d[u'body'],d[u'user'],d[u'topic'],now)
+                if h.db_do(query2, qvals2, db_path):
+                    message['success'] = True
+                else:
+                    message['errors'].append(1003)
+            else:
+                message['errors'].append(1004)
+        else:
+            message['errors'].append(1005)
+
     return message
 
 def list(target,d):
