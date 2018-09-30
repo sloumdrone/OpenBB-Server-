@@ -39,15 +39,20 @@ def add(target,d):
                 message['success'] = True
             else:
                 message['errors'].append(1003)
-    elif target == 'post':
+    elif target == 'post' or target == 'reply':
+        if target == 'reply' and not d[u'post']:
+            message['errors'].append(1005)
+            return message
         if d[u'topic'] and d[u'board']:
             query1 = "SELECT * FROM bb WHERE type = 'topic' and rowid = ?"
             qvals1 = (d[u'topic'],)
             if h.db_do(query1, qvals1, db_path) and d[u'body']:
-                headline = d[u'headline']
+                headline = d[u'headline'] if d[u'headline'] else ''
                 now = time.time()
+                parent = d[u'topic'] if target == 'post' else d[u'post']
+                print parent
                 query2 = "INSERT INTO bb (type, headline, body, creator, parent_id, creation_time) VALUES (?, ?, ?, ?, ?, ?)"
-                qvals2 = ('post',headline,d[u'body'],d[u'user'],d[u'topic'],now)
+                qvals2 = (target,headline,d[u'body'],d[u'user'],parent,now)
                 if h.db_do(query2, qvals2, db_path):
                     message['success'] = True
                 else:
