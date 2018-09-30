@@ -11,6 +11,7 @@ root_db_path = './bb/'
 @post('/api/<command>/<target>')
 @private
 def api_route(command,target):
+    message = h.msg()
     try:
         data = request.json[u'data']
     except:
@@ -20,23 +21,25 @@ def api_route(command,target):
     command = command.lower()
 
     if command == 'add':
-        targets = ['board','topic','post','reply']
+        targets = ['board', 'topic', 'post', 'reply']
         if target.lower() in targets:
-            message = api.add(target,data)
+            message = api.add(target, data)
         else:
-            message = {
-                'messages': ['Invalid target: {}'.format(target)],
-                'data': {'success': False}
-            }
+            message['errors'].append(1006)
     elif command == 'list':
-        targets = ['board','topic','post']
+        targets = ['board', 'topic', 'post']
         if target.lower() in targets:
-            message = api.list(target,data)
+            message = api.list(target, data)
+        else:
+            message['errors'].append(1006)
+    elif command == 'view':
+        targets = ['topic', 'post']
+        if target.lower() in targets:
+            message = api.view(target, data)
+        else:
+            message['errors'].append(1006)
     else:
-        message = {
-            'messages': ['Invalid argument: {}'.format(command)],
-            'data': {'success': False}
-        }
+        message['errors'].append(1006)
 
     return json.dumps(message)
 

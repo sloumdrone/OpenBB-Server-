@@ -44,7 +44,7 @@ def add(target,d):
             query1 = "SELECT * FROM bb WHERE type = 'topic' and rowid = ?"
             qvals1 = (d[u'topic'],)
             if h.db_do(query1, qvals1, db_path) and d[u'body']:
-                headline = d[u'headline'] if d[u'body'] else ''
+                headline = d[u'headline']
                 now = time.time()
                 query2 = "INSERT INTO bb (type, headline, body, creator, parent_id, creation_time) VALUES (?, ?, ?, ?, ?, ?)"
                 qvals2 = ('post',headline,d[u'body'],d[u'user'],d[u'topic'],now)
@@ -107,3 +107,50 @@ def list(target,d):
     return message
 
 
+def view(target, d):
+    message = h.msg()
+    board_db = False
+    if d[u'board']:
+        if os.path.isfile('./bb/{}.sqlite'.format(d[u'board'])):
+            board_db = './bb/{}.sqlite'.format(d[u'board'])
+
+    if target == 'topic' and board_db:
+        value = d[u'value'] if d[u'value'] else d[u'topic']
+        query = "SELECT rowid, headline, body, creator, creation_time FROM bb WHERE rowid = ? and type = 'topic'"
+        qvals = (value,)
+        rows = h.db_do(query, qvals, board_db, False)
+        if len(rows):
+            message['headline'] = rows[0][1]
+            message['body'] = rows[0][2]
+            message['creator'] = rows[0][3]
+            message['time'] = rows[0][4]
+            message['success'] = True
+        else:
+            message['errors'].append(1007)
+    elif target == 'post' and board_db:
+        value = d[u'value'] if d[u'value'] else d[u'post']
+        p_query = "SELECT rowid, headline, body, creator, creation_time FROM bb WHERE rowid = ?"
+        p_qvals = (value,)
+        r_query = "SELECT headline, body, creator, creation_time FROM bb WHERE parent_id = ? ORDER BY creation_time ASC"
+        r_qvals = (value,)
+        p_rows = h.db_do(p_query, p_qvals, board_db, False)
+        r_rows = h.db_do(r_query, p_qvals, board_db, False)
+        if p_rows:
+            message['headline'] = p_rows[0][1]
+            message['body'] = p_rows[0][2]
+            message['creator'] = p_rows[0][3]
+            message['time'] = p_rows[0][4]
+            message['success'] = True
+
+            if r_rows:
+                for x in r_rows:
+                    row = {'headline': x[0], 'body': x[1], 'creator': x[2], 'time': x[3]}
+                    message['rows'].append(row)
+            else:
+                message['rows'].append({'headline': '', 'body': 'No replies yet...', 'creator': '', 'time': ''})
+        else:
+            message['errors'].append(1007)
+    else:
+        message['errors'].append(1001)
+
+    return message
